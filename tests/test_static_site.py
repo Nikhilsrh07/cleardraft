@@ -107,9 +107,24 @@ class StaticSiteTests(unittest.TestCase):
         }
         self.assertTrue(expected_ids.issubset(set(self.parser.ids)))
 
-    def test_analysis_is_not_claimed_as_authorship_detection(self) -> None:
-        self.assertIn("not an AI detector", self.html)
-        self.assertIn("No authorship probability or percentage is calculated", self.html)
+    def test_ai_features_are_labeled_as_estimates(self) -> None:
+        self.assertIn("Heuristic estimate only", self.html)
+        self.assertIn("not Grammarly's model", self.html)
+        self.assertIn("ai-detector.js", self.html)
+        self.assertIn("humanizer.js", self.html)
+        for element_id in ("check-ai-button", "humanize-button", "ai-results", "ai-status"):
+            self.assertIn(element_id, self.parser.ids)
+        self.assertTrue((WEB_ROOT / "ai-detector.js").is_file())
+        self.assertTrue((WEB_ROOT / "humanizer.js").is_file())
+
+    def test_detector_analysis_doc_exists(self) -> None:
+        doc = (ROOT / "docs" / "detector-analysis.md").read_text(encoding="utf-8")
+        self.assertIn("not Grammarly's model", doc)
+        self.assertIn("10%", doc)
+
+    def test_workflow_runs_ai_feature_tests(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
+        self.assertIn("node --test tests/ai_features.test.js", workflow)
 
     def test_inline_javascript_is_present(self) -> None:
         self.assertTrue("function getTextSignals" in "".join(self.parser.inline_script_parts))
