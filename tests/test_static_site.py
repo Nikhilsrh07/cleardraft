@@ -122,6 +122,21 @@ class StaticSiteTests(unittest.TestCase):
         self.assertIn("path: apps/web", workflow)
         self.assertIn("pages: write", workflow)
         self.assertIn("actions/deploy-pages@", workflow)
+        self.assertIn("github.rest.repos.getPages", workflow)
+        self.assertIn("GitHub Pages deployment skipped", workflow)
+        self.assertIn("if: steps.pages-check.outputs.enabled == 'true'", workflow)
+
+    def test_browser_smoke_script_checks_app_and_opens_local_url(self) -> None:
+        script = (ROOT / "scripts" / "open-and-check.ps1").read_text(encoding="utf-8")
+        for expected in (
+            "http://127.0.0.1:$Port/",
+            "Start-Process $url",
+            'id="source-text"',
+            'id="create-draft-button"',
+            "finally",
+            "Stop-Process -Id $server.Id",
+        ):
+            self.assertIn(expected, script)
 
 
 if __name__ == "__main__":

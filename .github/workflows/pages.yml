@@ -48,14 +48,52 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check GitHub Pages configuration
+        id: pages-check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getPages({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+              core.setOutput("enabled", "true");
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+
+              core.setOutput("enabled", "false");
+              core.warning("GitHub Pages is not enabled. Deployment will be skipped; see the Actions summary for setup instructions.");
+            }
+
+      - name: Explain required Pages setup
+        if: steps.pages-check.outputs.enabled == 'false'
+        run: |
+          {
+            echo "## GitHub Pages deployment skipped"
+            echo
+            echo "The repository does not have a Pages site configured yet."
+            echo
+            echo "1. Open **Settings → Pages** in this repository."
+            echo "2. Set **Build and deployment → Source** to **GitHub Actions**."
+            echo "3. Re-run this workflow or push another commit to \`main\`."
+            echo
+            echo "> Review your repository plan and visibility before enabling Pages. A published Pages site is publicly accessible, even when its source repository is private."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Configure GitHub Pages
+        if: steps.pages-check.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
 
       - name: Upload web app
+        if: steps.pages-check.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web
 
       - name: Deploy web app
+        if: steps.pages-check.outputs.enabled == 'true'
         id: deployment
         uses: actions/deploy-pages@v4
