@@ -592,7 +592,7 @@
     <section class="intro" aria-labelledby="page-title">
       <p class="eyebrow">ClearDraft writing tools</p>
       <h1 id="page-title">Review your text with clarity.</h1>
-      <p class="subtitle">Check observable writing patterns and make transparent edits. This tool does not determine who—or what—wrote a text.</p>
+      <p class="subtitle">Check observable writing patterns and make transparent edits. AI scores here are local heuristic estimates, not verdicts on who—or what—wrote a text.</p>
     </section>
 
     <section class="workspace" id="workspace" aria-label="Writing editor and text analysis">
@@ -647,6 +647,22 @@
           </div>
           <p class="analysis-disclaimer">These are observable text statistics, not an AI detector. No authorship probability or percentage is calculated.</p>
         </details>
+        <details class="suggestions-details" id="ai-details">
+          <summary>AI likelihood &amp; humanize</summary>
+          <div class="review-toolbar">
+            <span class="review-toolbar-label" id="ai-status" role="status">Ready to check your text</span>
+            <button class="text-action" id="check-ai-button" type="button">Check AI score</button>
+            <button class="text-action" id="humanize-button" type="button">Humanize</button>
+          </div>
+          <div class="analysis-results" id="ai-results" aria-live="polite">
+            <div class="analysis-empty">
+              <span class="label-icon" aria-hidden="true">◐</span>
+              <strong>Your AI likelihood score will appear here</strong>
+              Select Check AI score for a local heuristic estimate, or Humanize to rewrite toward 10% or less.
+            </div>
+          </div>
+          <p class="analysis-disclaimer">Heuristic estimate only — not Grammarly's model and not an authorship verdict. Humanizing rewrites style, not meaning; review the result before using it.</p>
+        </details>
         <details class="suggestions-details">
           <summary>Individual writing suggestions <span id="suggestion-summary-count">(0)</span></summary>
           <div class="suggestion-list" id="suggestion-list" aria-live="polite">
@@ -662,7 +678,7 @@
 
     <aside class="notice">
       <span class="notice-icon" aria-hidden="true">🔒</span>
-      <div id="privacy-note"><strong>Private by design.</strong> Text stays in this browser. ClearDraft does not connect to an AI service, estimate authorship, or produce AI-detector percentages.</div>
+      <div id="privacy-note"><strong>Private by design.</strong> Text stays in this browser. ClearDraft does not connect to an AI service. Its AI score is a local heuristic estimate, not Grammarly's model or an authorship verdict.</div>
     </aside>
 
   </main>
@@ -697,6 +713,8 @@
     </form>
   </dialog>
 
+  <script src="ai-detector.js"></script>
+  <script src="humanizer.js"></script>
   <script>
     const source = document.querySelector("#source-text");
     const wordCount = document.querySelector("#word-count");
@@ -704,6 +722,10 @@
     const analysisStatus = document.querySelector("#analysis-status");
     const analysisResults = document.querySelector("#analysis-results");
     const analyzeButton = document.querySelector("#analyze-button");
+    const aiStatus = document.querySelector("#ai-status");
+    const aiResults = document.querySelector("#ai-results");
+    const checkAiButton = document.querySelector("#check-ai-button");
+    const humanizeButton = document.querySelector("#humanize-button");
     const suggestionList = document.querySelector("#suggestion-list");
     const acceptAllButton = document.querySelector("#accept-all-button");
     const copyButton = document.querySelector("#copy-button");
@@ -836,6 +858,77 @@
     }
 
     analyzeButton.addEventListener("click", analyzeText);
+
+    function clearAiResults() {
+      aiStatus.textContent = source.value.trim()
+        ? "Text changed. Check again for an updated score."
+        : "Ready to check your text";
+      aiResults.innerHTML = '<div class="analysis-empty"><span class="label-icon" aria-hidden="true">◐</span><strong>Your AI likelihood score will appear here</strong>Select Check AI score for a local heuristic estimate, or Humanize to rewrite toward 10% or less.</div>';
+    }
+
+    function renderAiScore(result, title) {
+      aiResults.replaceChildren();
+      const summary = document.createElement("p");
+      summary.className = "analysis-summary";
+      summary.textContent = title;
+      aiResults.append(summary);
+
+      const metrics = document.createElement("div");
+      metrics.className = "analysis-metrics";
+      metrics.append(
+        addAnalysisMetric("Estimated AI likelihood", `${result.score}%`),
+        addAnalysisMetric("Reading", result.label)
+      );
+      aiResults.append(metrics);
+
+      const findings = document.createElement("ul");
+      findings.className = "analysis-findings";
+      for (const signal of result.signals) {
+        addAnalysisFinding(findings, `${signal.name}: ${signal.value}% — ${signal.detail}.`);
+      }
+      aiResults.append(findings);
+    }
+
+    checkAiButton.addEventListener("click", () => {
+      const text = source.value.trim();
+      if (!text) {
+        aiStatus.textContent = "Add text to the document before checking.";
+        source.focus();
+        return;
+      }
+      const result = window.ClearDraftAI.detector.estimateAiLikelihood(text);
+      if (!result) {
+        aiStatus.textContent = "Need at least 30 words across 2 sentences for a meaningful score.";
+        return;
+      }
+      renderAiScore(result, "AI likelihood estimate complete");
+      aiStatus.textContent = "Heuristic estimate — not Grammarly's model or an authorship verdict.";
+    });
+
+    humanizeButton.addEventListener("click", () => {
+      const text = source.value.trim();
+      if (!text) {
+        aiStatus.textContent = "Add text to the document before humanizing.";
+        source.focus();
+        return;
+      }
+      const result = window.ClearDraftAI.humanizer.humanize(text, window.ClearDraftAI.detector.estimateAiLikelihood);
+      if (result.beforeScore === null) {
+        aiStatus.textContent = "Need at least 30 words across 2 sentences for a meaningful score.";
+        return;
+      }
+      draftOutput.value = result.text;
+      draftSourceSnapshot = text;
+      draftGoalSnapshot = writingGoal.value;
+      copyDraftButton.disabled = false;
+      replaceDraftButton.disabled = false;
+      reviewStatus.textContent = "Humanized version ready to review.";
+      const after = window.ClearDraftAI.detector.estimateAiLikelihood(result.text);
+      if (after) renderAiScore(after, "Humanized version scored");
+      aiStatus.textContent = result.reachedTarget
+        ? `Humanized in ${result.passes} pass(es): ${result.beforeScore}% → ${result.afterScore}%.`
+        : `Humanized in ${result.passes} pass(es) but only reached ${result.afterScore}% (target 10%).`;
+    });
 
     document.querySelector("#open-outline-button").addEventListener("click", () => {
       outlineDialog.showModal();
@@ -1105,6 +1198,7 @@
       ignoredSuggestions.clear();
       clearDraftPreview();
       clearAnalysis();
+      clearAiResults();
       renderSuggestions();
     });
     writingGoal.addEventListener("change", () => {
