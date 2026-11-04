@@ -357,6 +357,9 @@
     .draft-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
     .draft-actions .button { min-height: 36px; padding-inline: 12px; font-size: 12px; }
 
+    .ai-panel { border-top: 1px solid var(--line); }
+    .ai-panel .draft-actions { align-items: center; }
+
     .suggestions-details { border-top: 1px solid var(--line); }
     .suggestions-details summary {
       padding: 13px 16px;
@@ -647,12 +650,14 @@
           </div>
           <p class="analysis-disclaimer">These are observable text statistics, not an AI detector. No authorship probability or percentage is calculated.</p>
         </details>
-        <details class="suggestions-details" id="ai-details">
-          <summary>AI likelihood &amp; humanize</summary>
-          <div class="review-toolbar">
+        <div class="ai-panel">
+          <div class="review-heading">
+            <div class="pane-label"><span class="label-icon" aria-hidden="true">◐</span> AI check</div>
+          </div>
+          <div class="draft-actions">
+            <button class="button button-secondary" id="check-ai-button" type="button">Check AI score</button>
+            <button class="button button-primary" id="humanize-button" type="button">Humanize</button>
             <span class="review-toolbar-label" id="ai-status" role="status">Ready to check your text</span>
-            <button class="text-action" id="check-ai-button" type="button">Check AI score</button>
-            <button class="text-action" id="humanize-button" type="button">Humanize</button>
           </div>
           <div class="analysis-results" id="ai-results" aria-live="polite">
             <div class="analysis-empty">
@@ -662,7 +667,7 @@
             </div>
           </div>
           <p class="analysis-disclaimer">Heuristic estimate only — not Grammarly's model and not an authorship verdict. Humanizing rewrites style, not meaning; review the result before using it.</p>
-        </details>
+        </div>
         <details class="suggestions-details">
           <summary>Individual writing suggestions <span id="suggestion-summary-count">(0)</span></summary>
           <div class="suggestion-list" id="suggestion-list" aria-live="polite">
