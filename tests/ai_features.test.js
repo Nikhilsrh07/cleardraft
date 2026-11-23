@@ -60,6 +60,39 @@ test("humanizer preserves content words and changes visibly", () => {
   assert.ok(!result.text.includes("Moreover"), "AI marker should be rewritten");
 });
 
+test("detector scores a single long sentence instead of refusing it", () => {
+  const one = "The quarterly report shows that revenue grew by twelve percent while "
+    + "operating costs remained flat across all three regions, and the finance team expects "
+    + "this trend to continue into the next quarter as new contracts take effect and the "
+    + "sales pipeline expands with several large enterprise deals already in late-stage "
+    + "negotiation with procurement teams.";
+  const result = detector.estimateAiLikelihood(one);
+  assert.ok(result, "expected a score for a single sentence");
+  assert.equal(result.sentences, 1);
+  assert.ok(result.score <= 20, `expected a low score, got ${result.score}`);
+});
+
+test("detector is gentler on short human text than before", () => {
+  const mixed = "I think the plan is solid. Moreover, we should ship it this week. "
+    + "The team worked hard, and I'm proud of what we built together. Let's get it out "
+    + "the door and see what users say.";
+  const result = detector.estimateAiLikelihood(mixed);
+  assert.ok(result, "expected a score");
+  assert.ok(result.score < 31, `expected softer than the old 31, got ${result.score}`);
+});
+
+test("humanizer keeps quoted dialogue intact", () => {
+  const dialogue = 'She said, "Do not worry about the deadline, it is not important right now." '
+    + "He replied that the report was crucial and they could not delay it any further. "
+    + "The team waited for an answer while the clock kept ticking on the wall.";
+  const result = humanizer.humanize(dialogue, detector.estimateAiLikelihood);
+  assert.ok(!result.text.includes('; "'), `mangled quote artifact: ${result.text}`);
+  const quoteCount = (result.text.match(/"/g) || []).length;
+  assert.equal(quoteCount % 2, 0, `unbalanced quotes: ${result.text}`);
+  assert.ok(result.text.includes('"Don\'t worry'), `quote should stay attached: ${result.text}`);
+  assert.ok(result.afterScore <= 10, `expected <= 10 after, got ${result.afterScore}`);
+});
+
 test("humanizer leaves already-human prose nearly untouched", () => {
   const result = humanizer.humanize(HUMAN_SAMPLE, detector.estimateAiLikelihood);
   assert.ok(result.afterScore <= 20, `expected low score, got ${result.afterScore}`);
