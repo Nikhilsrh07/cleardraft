@@ -65,7 +65,10 @@
   }
 
   function splitSentences(text) {
-    return (text.match(/[^.!?]+[.!?]+/g) || [])
+    // A trailing closing quote, paren, or bracket stays with its sentence,
+    // so quoted speech is not split off and orphaned. A trailing fragment
+    // without terminal punctuation still counts as a sentence.
+    return (text.match(/[^.!?]+(?:[.!?]+["'”’)\]]?)?/g) || [])
       .map(function (sentence) { return sentence.trim(); })
       .filter(Boolean);
   }
@@ -103,9 +106,13 @@
     var sentences = splitSentences(input);
     var sentenceLengths = sentences.map(function (sentence) { return tokenize(sentence).length; })
       .filter(function (length) { return length > 0; });
-    if (sentenceLengths.length < 2) {
+    if (sentenceLengths.length === 0) {
       return null;
     }
+    // One sentence can still be scored: the phrase, repetition, and
+    // contraction signals work on any text. Only the rhythm and starter
+    // signals need more than one sentence, so they sit out.
+    var singleSentence = sentenceLengths.length === 1;
 
     // Signal 1: AI-typical phrase density (per 100 words).
     var markers = countMarkers(lower);
@@ -114,10 +121,15 @@
 
     // Signal 2: burstiness — human writing varies sentence length a lot,
     // AI prose stays uniform. Coefficient of variation, inverted.
+    // CV is noisy on short texts, so its weight fades in under 5 sentences
+    // instead of judging a 3-sentence note like a 30-sentence essay.
     var mean = sentenceLengths.reduce(function (total, length) { return total + length; }, 0) / sentenceLengths.length;
     var variance = sentenceLengths.reduce(function (total, length) { return total + Math.pow(length - mean, 2); }, 0) / sentenceLengths.length;
     var cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
-    var burstinessScore = 1 - clamp01(cv / 0.55);
+    var burstinessScore = singleSentence ? 0 : 1 - clamp01(cv / 0.55);
+    if (!singleSentence && sentenceLengths.length < 5) {
+      burstinessScore *= sentenceLengths.length / 5;
+    }
 
     // Signal 3: repeated two-word phrases (AI prose loops the same bigrams).
     var bigrams = new Map();
@@ -138,7 +150,12 @@
     });
     var topStarterShare = 0;
     starters.forEach(function (count) { topStarterShare = Math.max(topStarterShare, count / sentences.length); });
-    var starterScore = clamp01((topStarterShare - 0.25) / 0.5);
+    // Same short-text fade-in as the rhythm signal: with 2 sentences any
+    // top starter is 50%, which says nothing about authorship.
+    var starterScore = singleSentence ? 0 : clamp01((topStarterShare - 0.25) / 0.5);
+    if (!singleSentence && sentenceLengths.length < 5) {
+      starterScore *= sentenceLengths.length / 5;
+    }
 
     // Signal 5: no contractions reads formal and machine-like.
     var contractions = (input.match(CONTRACTION_PATTERN) || []).length;
@@ -166,9 +183,9 @@
       markers: markers,
       signals: [
         { name: "AI-typical phrases", value: Math.round(phraseScore * 100), detail: markers.length + " marker(s), " + markersPer100.toFixed(1) + " per 100 words" },
-        { name: "Sentence-length uniformity", value: Math.round(burstinessScore * 100), detail: "length variation (CV) " + cv.toFixed(2) },
+        { name: "Sentence-length uniformity", value: Math.round(burstinessScore * 100), detail: singleSentence ? "single sentence — rhythm not measured" : "length variation (CV) " + cv.toFixed(2) + (sentenceLengths.length < 5 ? " (scaled down: short text)" : "") },
         { name: "Repeated phrases", value: Math.round(repetitionScore * 100), detail: repeatedBigrams + " repeated bigram(s)" },
-        { name: "Repeated sentence starters", value: Math.round(starterScore * 100), detail: "top starter in " + Math.round(topStarterShare * 100) + "% of sentences" },
+        { name: "Repeated sentence starters", value: Math.round(starterScore * 100), detail: singleSentence ? "single sentence — starters not measured" : "top starter in " + Math.round(topStarterShare * 100) + "% of sentences" + (sentenceLengths.length < 5 ? " (scaled down: short text)" : "") },
         { name: "Missing contractions", value: Math.round(contractionScore * 100), detail: contractionsPer100.toFixed(1) + " contractions per 100 words" }
       ]
     };

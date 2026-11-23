@@ -765,7 +765,7 @@
 
     function getTextSignals(text) {
       const words = text.match(/\b[\p{L}\p{N}'’-]+\b/gu) || [];
-      const sentences = (text.match(/[^.!?]+[.!?]?/g) || []).map((sentence) => sentence.trim()).filter(Boolean);
+      const sentences = (text.match(/[^.!?]+(?:[.!?]+["'”’)\]]?)?/g) || []).map((sentence) => sentence.trim()).filter(Boolean);
       const sentenceLengths = sentences.map((sentence) => (sentence.match(/\b[\p{L}\p{N}'’-]+\b/gu) || []).length).filter(Boolean);
       const phraseCounts = new Map();
 
@@ -903,7 +903,7 @@
       }
       const result = window.ClearDraftAI.detector.estimateAiLikelihood(text);
       if (!result) {
-        aiStatus.textContent = "Need at least 30 words across 2 sentences for a meaningful score.";
+        aiStatus.textContent = "Need at least 30 words for a meaningful score.";
         return;
       }
       renderAiScore(result, "AI likelihood estimate complete");
@@ -919,7 +919,7 @@
       }
       const result = window.ClearDraftAI.humanizer.humanize(text, window.ClearDraftAI.detector.estimateAiLikelihood);
       if (result.beforeScore === null) {
-        aiStatus.textContent = "Need at least 30 words across 2 sentences for a meaningful score.";
+        aiStatus.textContent = "Need at least 30 words for a meaningful score.";
         return;
       }
       draftOutput.value = result.text;

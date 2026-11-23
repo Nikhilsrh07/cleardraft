@@ -137,7 +137,9 @@
   }
 
   function splitSentences(text) {
-    return (text.match(/[^.!?]+[.!?]+/g) || [])
+    // Same quote-aware split as the detector: a closing quote, paren, or
+    // bracket stays with its sentence instead of orphaning into the next one.
+    return (text.match(/[^.!?]+(?:[.!?]+["'”’)\]]?)?/g) || [])
       .map(function (sentence) { return sentence.trim(); })
       .filter(Boolean);
   }
@@ -170,7 +172,10 @@
   // Returns [first, second] or null. Prefers ";", ", and", ", but", then
   // any comma that leaves at least 3 words on each side.
   function splitSentence(sentence) {
-    var ending = (sentence.match(/[.!?]+$/) || [""])[0];
+    // Never split quoted speech: cutting inside quotes leaves one half
+    // with an opening quote and no close, and the other with the reverse.
+    if (/["“”]/.test(sentence)) return null;
+    var ending = (sentence.match(/[.!?]+["'”’)\]]?$/) || [""])[0];
     var body = sentence.slice(0, sentence.length - ending.length);
     var seams = [];
     var semicolon = body.indexOf(";");
@@ -240,10 +245,15 @@
 
     var bestMerge = null;
     for (var i = 0; i < sentences.length - 1; i += 1) {
-      var left = sentences[i].replace(/[.!?]+$/, "");
+      // Never merge across a quote boundary: joining quoted speech to the
+      // next sentence would leave the opening quote unclosed.
+      if (/["“”]$/.test(sentences[i].trim()) || /^["“”]/.test(sentences[i + 1].trim())) continue;
+      // Strip the ending punctuation (plus any closing quote) so the join
+      // is clean; the merged sentence takes the second half's ending.
+      var left = sentences[i].replace(/[.!?]+["'”’)\]]?$/, "");
       var right = sentences[i + 1];
-      var rightEnding = (right.match(/[.!?]+$/) || ["."])[0];
-      var rightBody = lowercaseFirst(right.replace(/[.!?]+$/, ""));
+      var rightEnding = (right.match(/[.!?]+["'”’)\]]?$/) || ["."])[0];
+      var rightBody = lowercaseFirst(right.replace(/[.!?]+["'”’)\]]?$/, ""));
       if (countWords(left) + countWords(right) > 32) continue;
       var merged = left + "; " + rightBody + rightEnding;
       var candidate = sentences.slice(0, i).concat([merged], sentences.slice(i + 2));
