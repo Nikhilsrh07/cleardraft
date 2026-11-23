@@ -57,9 +57,11 @@ sentences may already be near its floor.
 - 51–80: likely AI-assisted.
 - 81–100: strong AI signals.
 
-Minimum input is 30 words across at least 2 sentences; shorter text is
-too noisy to score and returns no result. The score is a writing-pattern
-estimate, not an authorship verdict: a human can write uniform, formal
-prose that scores high, and an edited AI draft can score low. Review the
-humanized output before using it — the rewrites preserve wording
-structure, not intent, and meaning stays the writer's responsibility.
+Minimum input is 30 words. A single-sentence text is scored without the
+rhythm and starter signals, which need more than one sentence. The rhythm
+and starter signals also fade in under 5 sentences, so a short note is not
+judged like a long essay. The score is a writing-pattern estimate, not an
+authorship verdict: a human can write uniform, formal prose that scores
+high, and an edited AI draft can score low. Review the humanized output
+before using it — the rewrites preserve wording structure, not intent, and
+meaning stays the writer's responsibility.
