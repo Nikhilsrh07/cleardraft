@@ -2,10 +2,11 @@
 
 ## Local checks
 
-Run the dependency-free static-site checks before opening a pull request:
+Run the dependency-free static-site checks and the AI feature tests before opening a pull request:
 
 ```powershell
 py -m unittest discover --start-directory tests --verbose
+node --test tests/ai_features.test.js
 ```
 
 ## Web app changes
