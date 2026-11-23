@@ -1,0 +1,28 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: cleardraft-api
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "2"
+    spec:
+      containerConcurrency: 5
+      timeoutSeconds: 60
+      containers:
+        - image: CHANGE_ME_REGION-docker.pkg.dev/CHANGE_ME_PROJECT_ID/cleardraft/api:latest
+          ports:
+            - name: http1
+              containerPort: 8080
+          env:
+            - name: GOOGLE_CLOUD_LOCATION
+              value: us
+            - name: GEMINI_MODEL
+              value: gemini-3.8-flash
+            - name: CLEARDRAFT_ALLOWED_ORIGINS
+              value: http://localhost:8000,http://127.0.0.1:8000,https://nikhilsrh07.github.io
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi

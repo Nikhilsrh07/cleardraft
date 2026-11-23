@@ -102,37 +102,38 @@ class StaticSiteTests(unittest.TestCase):
             "source-text",
             "draft-output",
             "create-draft-button",
+            "gemini-review-button",
+            "gemini-suggestion-list",
+            "theme-toggle",
             "analyze-button",
             "writing-goal",
         }
         self.assertTrue(expected_ids.issubset(set(self.parser.ids)))
+        self.assertTrue((WEB_ROOT / "config.js").is_file())
 
-    def test_ai_features_are_labeled_as_estimates(self) -> None:
-        self.assertIn("Heuristic estimate only", self.html)
-        self.assertIn("not Grammarly's model", self.html)
-        self.assertIn("ai-detector.js", self.html)
-        self.assertIn("humanizer.js", self.html)
-        for element_id in ("check-ai-button", "humanize-button", "ai-results", "ai-status"):
-            self.assertIn(element_id, self.parser.ids)
-        self.assertTrue((WEB_ROOT / "ai-detector.js").is_file())
-        self.assertTrue((WEB_ROOT / "humanizer.js").is_file())
-
-    def test_detector_analysis_doc_exists(self) -> None:
-        doc = (ROOT / "docs" / "detector-analysis.md").read_text(encoding="utf-8")
-        self.assertIn("not Grammarly's model", doc)
-        self.assertIn("10%", doc)
-
-    def test_workflow_runs_ai_feature_tests(self) -> None:
-        workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
-        self.assertIn("node --test tests/ai_features.test.js", workflow)
+    def test_analysis_is_not_claimed_as_authorship_detection(self) -> None:
+        self.assertIn("not an AI detector", self.html)
+        self.assertIn("No authorship probability or percentage is calculated", self.html)
+        self.assertIn("Selecting Review with Gemini sends the current text", self.html)
 
     def test_inline_javascript_is_present(self) -> None:
         self.assertTrue("function getTextSignals" in "".join(self.parser.inline_script_parts))
         self.assertTrue("function createDraft" in "".join(self.parser.inline_script_parts))
+        self.assertTrue('fetch(`${apiBaseUrl}/api/review`' in "".join(self.parser.inline_script_parts))
+        self.assertTrue("function renderGeminiSuggestions" in "".join(self.parser.inline_script_parts))
+        self.assertTrue('data-gemini-action' in "".join(self.parser.inline_script_parts))
+        self.assertTrue("function setTheme" in "".join(self.parser.inline_script_parts))
+        self.assertTrue("cleardraft-theme" in "".join(self.parser.inline_script_parts))
+
+    def test_theme_toggle_has_dark_theme_styles(self) -> None:
+        self.assertIn('[data-theme="dark"]', self.html)
+        self.assertIn('aria-label="Switch to dark theme"', self.html)
 
     def test_github_pages_workflow_validates_then_deploys_web_app(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "pages.yml").read_text(encoding="utf-8")
         self.assertIn("python -m unittest discover --start-directory tests --verbose", workflow)
+        self.assertIn("apps/api/requirements.txt", workflow)
+        self.assertIn("apps/api/tests", workflow)
         self.assertIn("needs: validate", workflow)
         self.assertIn("path: apps/web", workflow)
         self.assertIn("pages: write", workflow)
@@ -150,6 +151,22 @@ class StaticSiteTests(unittest.TestCase):
             'id="create-draft-button"',
             "finally",
             "Stop-Process -Id $server.Id",
+        ):
+            self.assertIn(expected, script)
+
+    def test_local_launcher_uses_gcloud_defaults_and_starts_both_services(self) -> None:
+        script = (ROOT / "scripts" / "start-local.ps1").read_text(encoding="utf-8")
+        for expected in (
+            "auth application-default print-access-token",
+            "config get-value project 2>$null).Trim()",
+            "$env:GOOGLE_CLOUD_PROJECT = $project",
+            "$env:GOOGLE_CLOUD_LOCATION = 'us'",
+            "Port $port is already in use",
+            "uvicorn",
+            "http.server",
+            "Start-Process $webUrl",
+            "Stop-Process -Id $webProcess.Id",
+            "Stop-Process -Id $apiProcess.Id",
         ):
             self.assertIn(expected, script)
 
